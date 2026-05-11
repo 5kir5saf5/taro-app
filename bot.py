@@ -11,7 +11,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.memory import MemoryStorage
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))  # Твой Telegram ID
+ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 
 bot = Bot(token=BOT_TOKEN)
 storage = MemoryStorage()
@@ -37,150 +37,136 @@ def save_data(data):
 # =========================
 class TarotState(StatesGroup):
     waiting_question = State()
-    waiting_topic = State()
+    waiting_spread_type = State()
+    waiting_spread_theme = State()
 
 class AdminState(StatesGroup):
-    waiting_queries_count = State()
+    pass
 
 # =========================
-# ВСЕ 78 КАРТ ТАРО (КРАСОЧНЫЕ ТРАКТОВКИ)
+# СОВЕТЫ (РАНДОМНЫЕ)
 # =========================
-cards = {
-    "Шут": {
-        "upright": "🌟 НАЧАЛО ПУТИ: Вселенная приглашает тебя сделать смелый шаг. Судьба шепчет: «Пора!» Твой вопрос {question} — это дверь в новое приключение. Доверься потоку.",
-        "reversed": "⚠️ НЕДУМАЙ: Ты стоишь на краю, но боишься прыгнуть. {question} требует спонтанности, но страх парализует. Сделай вдох и отпусти контроль."
+tips = [
+    "🌟 Звезды советуют: прислушайся к первому импульсу — он самый чистый.",
+    "💫 Луна шепчет: твоя интуиция сейчас сильнее логики.",
+    "🔥 Марс советует: не бойся действовать смело, Вселенная поддержит.",
+    "🌿 Венера напоминает: любовь начинается с принятия себя.",
+    "⚖️ Юпитер говорит: расширяй горизонты, удача на твоей стороне.",
+    "🪷 Сатурн учит: терпение — твоя суперсила сегодня.",
+    "☀️ Солнце сияет: улыбнись, светлый период уже близко.",
+    "🌙 Меркурий советует: будь гибким в общении, слова имеют силу.",
+    "💎 Северный узел ведёт: не оглядывайся, твой путь впереди.",
+    "🔮 Хирон напоминает: исцели прошлое — и будущее улыбнётся.",
+]
+
+# =========================
+# РАСШИРЕННЫЕ ТРАКТОВКИ ПО КАТЕГОРИЯМ
+# =========================
+theme_meanings = {
+    "love": {
+        "upright": "✨ В сердечных делах {card} сулит {meaning}. Энергия любви сейчас мощна как никогда. Твои чувства настоящи, а если сомневаешься — прислушайся к телу, оно не врёт. Отношения войдут в новую фазу в ближайшие дни. Если одна — готовься к встрече. Если в паре — жди углубления связи.",
+        "reversed": "🌙 В любви {card} перевёрнутый говорит о {meaning}. Возможно, ты закрываешь глаза на очевидное. Страх близости или старые обиды мешают. Позволь себе быть уязвимым — это откроет дверь к настоящей гармонии."
     },
-    "Маг": {
-        "upright": "💪 ВСЕ РЕСУРСЫ У ТЕБЯ: Для {question} у тебя есть всё! Твои таланты, связи и энергия — идеальный коктейль. Действуй уверенно.",
-        "reversed": "🌀 РАСТОЧЕНИЕ СИЛ: Твой вопрос {question} пока останется без ответа — ты разбрасываешься энергией на пустяки. Сфокусируйся."
+    "money": {
+        "upright": "💰 В финансах {card} пророчит {meaning}. Денежный поток активируется, но не сиди сложа руки — лови возможности. Удача любит подготовленных. Ближайшие недели принесут неожиданные поступления или выгодное предложение.",
+        "reversed": "📉 {card} перевёрнутый предупреждает: {meaning}. Финансовая энергия заблокирована из-за страха или жадности. Пересмотри своё отношение к деньгам. Они приходят к тем, кто отпустил контроль."
     },
-    "Верховная Жрица": {
-        "upright": "🌙 ИНТУИЦИЯ ВЕДЁТ: Прислушайся к внутреннему голосу по вопросу {question}. Тайна скоро раскроется во сне или знаке.",
-        "reversed": "🔮 ЗАВЕСА ТАЙНЫ: Ответ на {question} скрыт за туманом. Сейчас не время знать — подожди."
+    "career": {
+        "upright": "💼 В работе и карьере {card} означает {meaning}. Твой потенциал замечен. Возможно повышение, похвала от начальства или интересный проект. Действуй профессионально — результат превзойдёт ожидания.",
+        "reversed": "🌀 {card} перевёрнутый в делах говорит: {meaning}. Ты выгораешь или размениваешься на неважное. Остановись, пересмотри приоритеты. Смена деятельности или отдых вернут энергию."
     },
-    "Императрица": {
-        "upright": "🌸 РАСЦВЕТ: {question} принесёт плоды, как сад весной. Ты входишь в период изобилия и творчества.",
-        "reversed": "🥀 ЗАСТОЙ: Энергия {question} заблокирована. Позволь себе отдохнуть — рост начнётся после паузы."
-    },
-    "Император": {
-        "upright": "🏰 СТАБИЛЬНОСТЬ: {question} будет решён через структуру и порядок. Составь план — и всё получится.",
-        "reversed": "⚡ ХАОС: В {question} не хватает дисциплины. Возьми контроль в свои руки, иначе рухнет."
-    },
-    "Иерофант": {
-        "upright": "📜 МУДРОСТЬ: Для {question} обратись к старшим или книгам. Традиционный путь — самый верный.",
-        "reversed": "🚫 БУНТ: Ты отвергаешь очевидное в {question}. Бунт красив, но неэффективен."
-    },
-    "Влюбленные": {
-        "upright": "❤️ ВЫБОР СЕРДЦА: {question} связан с чувствами. Следуй зову души — там гармония.",
-        "reversed": "💔 РАЗЛАД: В {question} конфликт между долгом и желанием. Честность с собой исцелит."
-    },
-    "Колесница": {
-        "upright": "🏆 ПОБЕДА: {question} завершится триумфом! Твоя воля сдвинет горы.",
-        "reversed": "🚧 ПРЕПЯТСТВИЯ: Колеса {question} буксуют. Усиль натиск или смени тактику."
-    },
-    "Сила": {
-        "upright": "🦁 СМЕЛОСТЬ: В {question} твоя мягкая сила победит агрессию. Будь как вода.",
-        "reversed": "😨 СЛАБОСТЬ: Страх мешает {question}. Ты сильнее, чем кажешься."
-    },
-    "Отшельник": {
-        "upright": "🕯️ ПОИСК: {question} требует уединения и размышлений. Ответ внутри тебя.",
-        "reversed": "🏚️ ИЗОЛЯЦИЯ: Ты застрял в {question} в одиночестве. Пора выйти к людям."
-    },
-    "Колесо Фортуны": {
-        "upright": "🎡 ПЕРЕМЕНЫ: Судьба вращает колесо для {question}. Скоро неожиданный поворот!",
-        "reversed": "⏸️ ЗАДЕРЖКА: {question} заморожен. Сопротивляясь переменам, ты блокируешь результат."
-    },
-    "Справедливость": {
-        "upright": "⚖️ КАРМА: {question} решится честно. Что посеял — то пожнёшь.",
-        "reversed": "🎭 НЕСПРАВЕДЛИВОСТЬ: {question} несёт ложь. Будь бдителен."
-    },
-    "Повешенный": {
-        "upright": "🔄 НОВЫЙ ВЗГЛЯД: {question} требует жертвы и паузы. Переверни ситуацию вверх ногами.",
-        "reversed": "⛓️ ЗАСТРЕВАНИЕ: Ты в тупике {question}. Отпусти — и появится выход."
-    },
-    "Смерть": {
-        "upright": "🐛➡️🦋 ТРАНСФОРМАЦИЯ: {question} завершает старый цикл. Это не конец, а рождение нового.",
-        "reversed": "🌀 СОПРОТИВЛЕНИЕ: Страх перемен блокирует {question}. Умри для старого — возродись."
-    },
-    "Умеренность": {
-        "upright": "⚖️ БАЛАНС: {question} решится через золотую середину. Терпение — твой ключ.",
-        "reversed": "⚡ ДИСБАЛАНС: Эмоции в {question} зашкаливают. Найди покой."
-    },
-    "Дьявол": {
-        "upright": "⛓️ ЗАВИСИМОСТЬ: {question} связан с твоей тенью. Иллюзия власти душит тебя.",
-        "reversed": "🕊️ ОСВОБОЖДЕНИЕ: Ты рвёшь цепи {question}. Свобода близко!"
-    },
-    "Башня": {
-        "upright": "💥 КРАХ: {question} разрушит иллюзии. Хаос очистит место для нового.",
-        "reversed": "🏚️ ИЗБЕГАНИЕ: Кризис {question} отсрочен, но не отменён."
-    },
-    "Звезда": {
-        "upright": "✨ НАДЕЖДА: {question} несёт исцеление. Мечты становятся реальностью.",
-        "reversed": "🌑 БЕЗНАДЁЖНОСТЬ: {question} потерял свет. Верни веру в чудо."
-    },
-    "Луна": {
-        "upright": "🌊 ИЛЛЮЗИИ: {question} скрыт в тумане. Доверяй снам и страхам — они укажут путь.",
-        "reversed": "🔦 ПРОЗРЕНИЕ: Тайна {question} раскроется. Мрак рассеивается."
-    },
-    "Солнце": {
-        "upright": "☀️ РАДОСТЬ: {question} осветит твою жизнь! Счастье и успех у дверей.",
-        "reversed": "🌥️ ТЕНИ: Временные трудности в {question}. Солнце выглянет скоро."
-    },
-    "Суд": {
-        "upright": "🎺 ПРОБУЖДЕНИЕ: {question} зовёт тебя к новой жизни. Второй шанс!",
-        "reversed": "😴 СПЯЧКА: Ты упускаешь знаки в {question}. Проснись!"
-    },
-    "Мир": {
-        "upright": "🏆 ЗАВЕРШЕНИЕ: {question} приведёт к целостности. Ты достиг цели.",
-        "reversed": "🚧 НЕЗАВЕРШЁННОСТЬ: {question} не закрыт. Сделай последний шаг."
+    "general": {
+        "upright": "🔮 В твоей ситуации {card} приносит {meaning}. Вселенная выстраивает события так, чтобы ты вырос. Доверяй процессу даже если сейчас непонятно. Скоро всё встанет на свои места.",
+        "reversed": "🌑 {card} перевёрнутый показывает: {meaning}. Сопротивление течению создаёт дискомфорт. Расслабься, прими то, что есть — и увидишь выход."
     }
 }
 
-# Добавляем младшие арканы (12 для краткости, но можно расширить)
-minors = ["Туз Жезлов", "Туз Кубков", "Туз Мечей", "Туз Пентаклей"]
-for minor in minors:
-    cards[minor] = {
-        "upright": f"⭐ {minor}: {minor.split()[1]} энергия приносит начало в {{question}}. Новый импульс!",
-        "reversed": f"🌀 {minor} перевёрнутый: Задержка в {{question}}. Пересмотри подход."
-    }
+# =========================
+# КАРТЫ ТАРО (80шт с трактовками)
+# =========================
+cards_data = {
+    "Шут": {"upright": "новое начало, свободу, прыжок веры", "reversed": "безрассудство, страх перед шагом, детскую наивность"},
+    "Маг": {"upright": "силу воли, ресурсы, мастерство", "reversed": "манипуляции, неуверенность, потерю фокуса"},
+    "Верховная Жрица": {"upright": "интуицию, тайны, мудрость молчания", "reversed": "заблокированное чутьё, иллюзии, неговорящие знаки"},
+    "Императрица": {"upright": "плодородие, творчество, изобилие", "reversed": "лень, застой, зависимость от других"},
+    "Император": {"upright": "структуру, власть, стабильность", "reversed": "тиранию, хаос, отсутствие границ"},
+    "Иерофант": {"upright": "традиции, наставника, правильный путь", "reversed": "бунт, ложные учения, разрыв с родом"},
+    "Влюбленные": {"upright": "выбор сердца, гармонию, союз", "reversed": "разлад, неверное решение, внутренний конфликт"},
+    "Колесница": {"upright": "победу, волю, движение вперёд", "reversed": "потерю контроля, агрессию, препятствия"},
+    "Сила": {"upright": "смелость, терпение, внутреннюю мощь", "reversed": "слабость, страх, эмоциональный взрыв"},
+    "Отшельник": {"upright": "мудрость, покой, поиск истины", "reversed": "одиночество, изоляцию, отчаяние"},
+    "Колесо Фортуны": {"upright": "перемены, удачу, поворот судьбы", "reversed": "неудачу, сопротивление, застой"},
+    "Справедливость": {"upright": "честность, карму, баланс", "reversed": "несправедливость, ложь, уход от ответа"},
+    "Повешенный": {"upright": "паузу, жертву, новый взгляд", "reversed": "застревание, бесполезную жертву, эгоизм"},
+    "Смерть": {"upright": "трансформацию, конец цикла, рождение нового", "reversed": "страх перемен, сопротивление, гниение старого"},
+    "Умеренность": {"upright": "баланс, терпение, гармонию", "reversed": "дисбаланс, нетерпение, конфликт"},
+    "Дьявол": {"upright": "привязанность, иллюзию, зависимости", "reversed": "освобождение, разрыв цепей, прозрение"},
+    "Башня": {"upright": "крах, внезапные перемены, шок", "reversed": "избегание кризиса, затянутое разрушение"},
+    "Звезда": {"upright": "надежду, вдохновение, исцеление", "reversed": "отчаяние, потерю веры, апатию"},
+    "Луна": {"upright": "иллюзии, страхи, глубины подсознания", "reversed": "прояснение, раскрытие обмана, победу над страхом"},
+    "Солнце": {"upright": "радость, успех, счастье", "reversed": "пессимизм, временные трудности, эгоизм"},
+    "Суд": {"upright": "пробуждение, прощение, новый шанс", "reversed": "самообман, нежелание меняться, потерю возможности"},
+    "Мир": {"upright": "завершение, целостность, награду", "reversed": "незавершённость, пустоту, задержку результата"},
+}
+# Добавим ещё младших арканов для разнообразия
+minors = ["Туз", "Двойка", "Тройка", "Четверка", "Пятерка", "Шестерка", "Семерка", "Восьмерка", "Девятка", "Десятка", "Паж", "Рыцарь", "Королева", "Король"]
+suits = ["Жезлов", "Кубков", "Мечей", "Пентаклей"]
+for suit in suits:
+    for minor in minors:
+        name = f"{minor} {suit}"
+        if minor == "Туз":
+            u = f"начало в сфере {suit.lower()}, чистый потенциал, первый шаг"
+            r = f"упущенный шанс, задержку старта, блокировку энергии"
+        elif minor in ["Королева", "Король"]:
+            u = f"зрелую энергию {suit.lower()}, мудрость, влияние"
+            r = f"злоупотребление властью, холодность, доминирование"
+        else:
+            u = f"постепенное развитие в {suit.lower()}, стабильность, рост"
+            r = f"застой, мелкие препятствия, потерю темпа"
+        cards_data[name] = {"upright": u, "reversed": r}
 
 # =========================
-# КЛАВИАТУРА ГЛАВНОГО МЕНЮ
+# КЛАВИАТУРЫ (все кнопки под сообщениями)
 # =========================
-main_menu = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text="🃏 Получить ответ", callback_data="ask")],
-    [InlineKeyboardButton(text="💰 Купить вопросы", callback_data="buy")],
-    [InlineKeyboardButton(text="📊 Мой баланс", callback_data="balance")],
+main_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="🃏 Расклад на вопрос", callback_data="spread_single")],
+    [InlineKeyboardButton(text="🔮 Расклад 3 карты", callback_data="spread_three")],
+    [InlineKeyboardButton(text="❤️ Любовь", callback_data="theme_love")],
+    [InlineKeyboardButton(text="💰 Финансы", callback_data="theme_money")],
+    [InlineKeyboardButton(text="💼 Карьера", callback_data="theme_career")],
     [InlineKeyboardButton(text="🎁 Бесплатный вопрос дня", callback_data="free")],
+    [InlineKeyboardButton(text="💎 Купить вопросы", callback_data="buy")],
+    [InlineKeyboardButton(text="📊 Мой баланс", callback_data="balance")],
 ])
 
-# Тарифы
-tariffs = InlineKeyboardMarkup(inline_keyboard=[
+back_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="◀️ В главное меню", callback_data="main_menu")]
+])
+
+tariff_keyboard = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="🔮 3 вопроса — 50 ₽", callback_data="3_50")],
     [InlineKeyboardButton(text="✨ 8 вопросов — 100 ₽", callback_data="8_100")],
     [InlineKeyboardButton(text="🌟 15 вопросов — 350 ₽", callback_data="15_350")],
-    [InlineKeyboardButton(text="◀️ Назад", callback_data="menu")],
+    [InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")],
 ])
 
 # =========================
-# ФУНКЦИИ РАБОТЫ С ПОЛЬЗОВАТЕЛЯМИ
+# ФУНКЦИИ
 # =========================
 def get_user(user_id):
     data = load_data()
-    if str(user_id) not in data["users"]:
-        data["users"][str(user_id)] = {
-            "questions_left": 1,  # 1 бесплатный вопрос при регистрации
-            "last_free_date": None,
-            "total_asked": 0
-        }
+    uid = str(user_id)
+    if uid not in data["users"]:
+        data["users"][uid] = {"questions_left": 1, "last_free_date": None, "total_asked": 0}
         save_data(data)
-    return data["users"][str(user_id)]
+    return data["users"][uid]
 
 def update_user(user_id, key, value):
     data = load_data()
-    if str(user_id) not in data["users"]:
+    uid = str(user_id)
+    if uid not in data["users"]:
         get_user(user_id)
-    data["users"][str(user_id)][key] = value
+    data["users"][uid][key] = value
     save_data(data)
 
 def can_get_free(user_id):
@@ -188,8 +174,11 @@ def can_get_free(user_id):
     last = user.get("last_free_date")
     if not last:
         return True
-    last_date = datetime.fromisoformat(last)
-    return datetime.now() - last_date >= timedelta(days=1)
+    try:
+        last_date = datetime.fromisoformat(last)
+        return datetime.now() - last_date >= timedelta(days=1)
+    except:
+        return True
 
 def use_free_question(user_id):
     if can_get_free(user_id):
@@ -197,189 +186,224 @@ def use_free_question(user_id):
         return True
     return False
 
-# =========================
-# ГАДАНИЕ (КРАСОЧНАЯ ТРАКТОВКА)
-# =========================
-def draw_card_with_meaning(question):
-    """Возвращает карту и трактовку с подстановкой вопроса"""
-    card_name = random.choice(list(cards.keys()))
-    is_reversed = random.choice([True, False])
-    template = cards[card_name]["reversed" if is_reversed else "upright"]
-    meaning = template.format(question=question)
-    return card_name, "перевёрнутая" if is_reversed else "прямая", meaning
+def draw_card():
+    name = random.choice(list(cards_data.keys()))
+    is_rev = random.choice([True, False])
+    meaning_text = cards_data[name]["reversed" if is_rev else "upright"]
+    return name, "перевёрнутая" if is_rev else "прямая", meaning_text
+
+def get_full_reading(card_name, position, meaning, theme, question):
+    theme_key = theme.replace("theme_", "") if theme.startswith("theme_") else "general"
+    if theme_key not in theme_meanings:
+        theme_key = "general"
+    template = theme_meanings[theme_key]["reversed" if "перевёрнутая" in position else "upright"]
+    reading = template.format(card=card_name, meaning=meaning)
+    # Добавляем вопрос в трактовку
+    reading += f"\n\n📩 Твой вопрос: «{question}». Карты видят его суть."
+    return reading
+
+def get_three_cards_reading(question, theme):
+    cards_res = []
+    for _ in range(3):
+        name, pos, mean = draw_card()
+        cards_res.append((name, pos, mean))
+    # Общая трактовка
+    combined = " ".join([c[2] for c in cards_res])
+    if "любов" in question.lower() or theme == "love":
+        general = f"💞 В любви три карты говорят: {combined}. Энергия отношений переплетается. Судьба ведёт тебя к важной встрече или пересмотру текущей связи. Открой сердце."
+    elif "денег" in question.lower() or "финанс" in question.lower() or theme == "money":
+        general = f"💰 Деньги: {combined}. Финансовый поток усилится после твоего действия. Избегай импульсивных трат."
+    elif "работ" in question.lower() or theme == "career":
+        general = f"💼 Карьера: {combined}. Профессиональный рост неизбежен. Будь внимателен к знакам."
+    else:
+        general = f"🔮 Общий поток: {combined}. Вселенная готовит сюрприз. Расслабься и позволь событиям идти своим чередом."
+    return cards_res, general
 
 # =========================
 # ОБРАБОТЧИКИ
 # =========================
 @dp.message(CommandStart())
 async def start(message: types.Message):
-    user_id = message.from_user.id
-    get_user(user_id)
+    get_user(message.from_user.id)
     await message.answer(
-        "🔮 **Добро пожаловать в Магическое Таро** 🔮\n\n"
-        "Я помогу заглянуть в твоё будущее без ИИ — только древняя мудрость карт.\n\n"
-        "✨ **Тарифы:**\n"
-        "• 3 вопроса — 50 ₽\n"
-        "• 8 вопросов — 100 ₽\n"
-        "• 15 вопросов — 350 ₽\n\n"
-        "🎁 **Бесплатный вопрос каждый день!**\n\n"
-        "Выбери действие:",
-        reply_markup=main_menu,
+        "🌟 **Добро пожаловать в Оракул Таро** 🌟\n\n"
+        "Здесь древние карты говорят с тобой без посредников. Каждый расклад — это разговор с душой мира.\n\n"
+        "✨ **Что ты найдёшь здесь?**\n"
+        "• Глубокие трактовки, которые отзовутся в сердце\n"
+        "• Расклады на любовь, деньги, карьеру и любые вопросы\n"
+        "• Бесплатный вопрос каждый день\n\n"
+        "Выбери то, что сейчас важнее всего 👇",
+        reply_markup=main_keyboard,
         parse_mode="Markdown"
     )
 
-@dp.callback_query(F.data == "menu")
-async def back_to_menu(callback: CallbackQuery):
+@dp.callback_query(F.data == "main_menu")
+async def back_to_main(callback: CallbackQuery):
     await callback.message.edit_text(
-        "🔮 Главное меню:",
-        reply_markup=main_menu
+        "🌟 Главное меню — выбери расклад или тему:",
+        reply_markup=main_keyboard
     )
     await callback.answer()
 
-@dp.callback_query(F.data == "ask")
-async def ask_question(callback: CallbackQuery, state: FSMContext):
-    user_id = callback.from_user.id
-    user = get_user(user_id)
-    if user["questions_left"] <= 0:
-        await callback.message.answer(
-            "❌ У тебя закончились вопросы!\n"
-            "Купи новый пакет в меню → 💰 Купить вопросы"
+@dp.callback_query(F.data == "balance")
+async def show_balance(callback: CallbackQuery):
+    user = get_user(callback.from_user.id)
+    await callback.message.edit_text(
+        f"📊 **Твой баланс:**\n\n"
+        f"🎴 Осталось вопросов: **{user['questions_left']}**\n"
+        f"📆 Всего раскладов: {user.get('total_asked', 0)}\n"
+        f"🎁 Следующий бесплатный: завтра\n\n"
+        f"➕ Пополнить баланс: кнопка «💎 Купить вопросы»",
+        reply_markup=back_keyboard
+    )
+    await callback.answer()
+
+@dp.callback_query(F.data == "free")
+async def free_question(callback: CallbackQuery, state: FSMContext):
+    if use_free_question(callback.from_user.id):
+        await callback.message.edit_text(
+            "🎁 **Бесплатный вопрос дня активирован!**\n\n"
+            "Напиши свой вопрос:",
+            reply_markup=back_keyboard
         )
-        await callback.answer()
-        return
-    await callback.message.answer(
-        "📝 **Напиши свой вопрос**\n\n"
-        "Примеры:\n"
-        "• Что меня ждёт в любви?\n"
-        "• Стоит ли менять работу?\n"
-        "• Как ко мне относится Анна?\n\n"
-        "Чем точнее вопрос — тем яснее ответ ✨"
+        await state.set_state(TarotState.waiting_question)
+        await state.update_data(theme="general", spread="single")
+    else:
+        await callback.message.edit_text(
+            "❌ Ты уже использовал бесплатный вопрос сегодня.\n"
+            "Вернись завтра или купи платные вопросы.",
+            reply_markup=back_keyboard
+        )
+    await callback.answer()
+
+@dp.callback_query(F.data.startswith("theme_"))
+async def choose_theme(callback: CallbackQuery, state: FSMContext):
+    theme = callback.data
+    await state.update_data(theme=theme)
+    await callback.message.edit_text(
+        f"📝 Теперь напиши свой вопрос по этой теме.\n\n"
+        f"Примеры:\n"
+        f"• Что меня ждёт в ближайшее время?\n"
+        f"• Как ко мне относится ...?\n"
+        f"• Стоит ли начинать проект?",
+        reply_markup=back_keyboard
+    )
+    await state.set_state(TarotState.waiting_question)
+    await state.update_data(spread="single")
+    await callback.answer()
+
+@dp.callback_query(F.data == "spread_single")
+async def single_spread(callback: CallbackQuery, state: FSMContext):
+    await state.update_data(spread="single", theme="general")
+    await callback.message.edit_text(
+        "🔮 **Расклад 1 карта**\n\n"
+        "Напиши свой вопрос. Он может быть о любом — карты ответят честно.",
+        reply_markup=back_keyboard
+    )
+    await state.set_state(TarotState.waiting_question)
+    await callback.answer()
+
+@dp.callback_query(F.data == "spread_three")
+async def three_spread(callback: CallbackQuery, state: FSMContext):
+    await state.update_data(spread="three", theme="general")
+    await callback.message.edit_text(
+        "🃏 **Расклад 3 карты**\n\n"
+        "Прошлое → Настоящее → Будущее\n\n"
+        "Напиши свой вопрос.",
+        reply_markup=back_keyboard
     )
     await state.set_state(TarotState.waiting_question)
     await callback.answer()
 
 @dp.message(TarotState.waiting_question)
-async def do_tarot(message: types.Message, state: FSMContext):
+async def handle_question(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
+    data = await state.get_data()
+    spread = data.get("spread", "single")
+    theme = data.get("theme", "general")
     question = message.text.strip()
-    
+
     user = get_user(user_id)
     if user["questions_left"] <= 0:
-        await message.answer("❌ Нет вопросов. Пополни баланс в меню.")
+        await message.answer(
+            "❌ У тебя закончились вопросы!\nПополни баланс в меню.",
+            reply_markup=main_keyboard
+        )
         await state.clear()
         return
-    
+
     # Списываем вопрос
     update_user(user_id, "questions_left", user["questions_left"] - 1)
     update_user(user_id, "total_asked", user.get("total_asked", 0) + 1)
-    
-    # Получаем карту
-    card_name, position, meaning = draw_card_with_meaning(question)
-    
-    # Составляем красивый ответ
-    response = f"""
-🔮 **Твой вопрос:** _{question}_
 
-✨ **Выпала карта:** {card_name}
-📌 **Положение:** {position}
+    tip = random.choice(tips)
 
-{meaning}
-
-💫 **Совет:** Доверься Вселенной, но не забывай про свои действия.
-
-📊 Осталось вопросов: {user["questions_left"] - 1}
-    """
-    await message.answer(response, parse_mode="Markdown")
-    await state.clear()
-    
-    # Предложение купить ещё
-    if user["questions_left"] - 1 <= 0:
-        await message.answer(
-            "⚠️ Вопросы закончились! Купи новый пакет в меню.",
-            reply_markup=main_menu
-        )
-
-@dp.callback_query(F.data == "free")
-async def free_question_day(callback: CallbackQuery, state: FSMContext):
-    user_id = callback.from_user.id
-    if use_free_question(user_id):
-        await callback.message.answer(
-            "🎁 **Бесплатный вопрос дня активирован!**\n\n"
-            "Напиши свой вопрос:"
-        )
-        await state.set_state(TarotState.waiting_question)
+    if spread == "three":
+        cards_res, general = get_three_cards_reading(question, theme)
+        text = f"🔮 **Расклад 3 карты**\n📩 Вопрос: _{question}_\n\n"
+        positions = ["Прошлое", "Настоящее", "Будущее"]
+        for i, (name, pos, mean) in enumerate(cards_res):
+            text += f"🃏 **{positions[i]}** — {name} ({pos})\n✨ {mean}\n\n"
+        text += f"🌟 **Общая трактовка:**\n{general}\n\n"
+        text += f"💫 **Совет:** {tip}\n\n"
+        text += f"📊 Осталось вопросов: {user['questions_left'] - 1}"
     else:
-        await callback.message.answer(
-            "❌ Ты уже использовал бесплатный вопрос сегодня.\n"
-            "Вернись завтра или купи платные вопросы."
-        )
-    await callback.answer()
+        name, pos, mean = draw_card()
+        full_reading = get_full_reading(name, pos, mean, theme, question)
+        text = f"🃏 **Карта:** {name} ({pos})\n\n{full_reading}\n\n💫 {tip}\n\n📊 Осталось вопросов: {user['questions_left'] - 1}"
 
-@dp.callback_query(F.data == "balance")
-async def show_balance(callback: CallbackQuery):
-    user_id = callback.from_user.id
-    user = get_user(user_id)
-    await callback.message.answer(
-        f"📊 **Твой баланс:**\n\n"
-        f"🎴 Осталось вопросов: {user['questions_left']}\n"
-        f"📆 Всего задано: {user.get('total_asked', 0)}\n"
-        f"🎁 Следующий бесплатный: завтра в {datetime.now().strftime('%H:%M')}"
-    )
-    await callback.answer()
+    await message.answer(text, parse_mode="Markdown", reply_markup=main_keyboard)
+    await state.clear()
 
+# =========================
+# ПОКУПКА
+# =========================
 @dp.callback_query(F.data == "buy")
-async def buy_questions(callback: CallbackQuery):
+async def buy_menu(callback: CallbackQuery):
     await callback.message.edit_text(
-        "💸 **Выбери пакет вопросов:**\n"
-        "После оплаты отправь скрин чека в этот чат\n\n"
-        "💳 **Реквизиты Тинькофф:**\n"
-        "По номеру телефона: `89512694834`\n\n"
-        "Назначение платежа: `Вопросы Таро`\n\n"
-        "✅ После оплаты администратор проверит и начислит вопросы.",
-        reply_markup=tariffs,
-        parse_mode="Markdown"
+        "💸 **Выбери пакет вопросов:**\n\n"
+        "3 вопроса — 50 ₽\n8 вопросов — 100 ₽\n15 вопросов — 350 ₽\n\n"
+        "💳 Реквизиты Тинькофф: **89512694834**\n"
+        "В комментарии укажи свой Telegram ID.\n\n"
+        "📸 После оплаты отправь скрин чека сюда — администратор начислит вопросы.",
+        reply_markup=tariff_keyboard
     )
     await callback.answer()
 
 @dp.callback_query(F.data.startswith(("3_50", "8_100", "15_350")))
-async def select_tariff(callback: CallbackQuery, state: FSMContext):
-    tariff_map = {
-        "3_50": (3, 50),
-        "8_100": (8, 100),
-        "15_350": (15, 350)
-    }
-    questions, price = tariff_map[callback.data]
-    await state.update_data(pending_questions=questions, pending_price=price)
-    await callback.message.answer(
-        f"💳 **Ты выбрал {questions} вопросов за {price} ₽**\n\n"
-        f"**Как оплатить:**\n"
-        f"1. Переведи {price} ₽ на номер `89512694824` (Тинькофф)\n"
-        f"2. В комментарии укажи свой Telegram ID: `{callback.from_user.id}`\n"
-        f"3. Пришли **скрин чека** сюда\n\n"
-        f"⏳ После проверки администратор добавит вопросы.\n"
-        f"💬 Если возникли проблемы — напиши @support"
+async def tariff_chosen(callback: CallbackQuery, state: FSMContext):
+    tariff_map = {"3_50": 3, "8_100": 8, "15_350": 15}
+    qty = tariff_map[callback.data]
+    await state.update_data(pending_qty=qty)
+    await callback.message.edit_text(
+        f"✅ Ты выбрал {qty} вопросов.\n\n"
+        f"💳 Оплати на номер **89512694834** (Тинькофф) с комментарием: «Таро {qty}»\n"
+        f"📸 После оплаты пришли скрин чека в этот чат.\n\n"
+        f"🔔 Администратор проверит и начислит вопросы вручную.",
+        reply_markup=back_keyboard
     )
     await callback.answer()
 
-# =========================
-# АДМИН-ПАНЕЛЬ
-# =========================
-@dp.message(Command("admin"))
-async def admin_panel(message: types.Message):
-    if message.from_user.id != ADMIN_ID:
-        await message.answer("🚫 Доступ запрещён.")
-        return
+@dp.message(F.photo)
+async def payment_screenshot(message: types.Message):
+    user_id = message.from_user.id
     await message.answer(
-        "👑 **Админ-панель**\n\n"
-        "Команды:\n"
-        "/add_questions [user_id] [количество] — добавить вопросы пользователю\n"
-        "/give_free [user_id] — дать бесплатный вопрос\n"
-        "/all_users — статистика\n"
-        "/check_payment — обработать скрин чека"
+        "📸 Спасибо, скрин получен!\n\n"
+        "Администратор проверит оплату и начислит вопросы в ближайшее время.",
+        reply_markup=main_keyboard
     )
+    if ADMIN_ID:
+        await bot.send_message(
+            ADMIN_ID,
+            f"💰 Новый скрин чека от @{message.from_user.username} (ID: {user_id})\n"
+            f"Начисли вопросы командой: /add_questions {user_id} [количество]"
+        )
 
+# =========================
+# АДМИН КОМАНДЫ
+# =========================
 @dp.message(Command("add_questions"))
-async def add_questions(message: types.Message):
+async def add_questions_admin(message: types.Message):
     if message.from_user.id != ADMIN_ID:
         return
     try:
@@ -387,51 +411,55 @@ async def add_questions(message: types.Message):
         user_id = int(parts[1])
         amount = int(parts[2])
         user = get_user(user_id)
-        new_balance = user["questions_left"] + amount
-        update_user(user_id, "questions_left", new_balance)
-        await message.answer(f"✅ Пользователю {user_id} добавлено {amount} вопросов. Баланс: {new_balance}")
-        await bot.send_message(user_id, f"🎉 Администратор добавил тебе {amount} вопросов! Приятного гадания ✨")
+        new_bal = user["questions_left"] + amount
+        update_user(user_id, "questions_left", new_bal)
+        await message.answer(f"✅ Добавлено {amount} вопросов пользователю {user_id}. Баланс: {new_bal}")
+        await bot.send_message(user_id, f"✨ Администратор добавил тебе {amount} вопросов! Баланс: {new_bal}. Приятного гадания 🌙")
     except:
         await message.answer("❌ Формат: /add_questions user_id количество")
 
 @dp.message(Command("all_users"))
-async def all_users(message: types.Message):
+async def all_users_admin(message: types.Message):
     if message.from_user.id != ADMIN_ID:
         return
     data = load_data()
-    users = data["users"]
-    text = "📊 **Статистика пользователей:**\n\n"
-    for uid, info in users.items():
-        text += f"👤 {uid}: {info['questions_left']} вопросов, всего {info.get('total_asked', 0)}\n"
+    text = "📊 Пользователи:\n"
+    for uid, info in data["users"].items():
+        text += f"👤 {uid}: {info['questions_left']} вопросов, всего {info.get('total_asked',0)}\n"
     await message.answer(text[:4000])
 
-@dp.message(F.photo)
-async def handle_screenshot(message: types.Message):
-    """Админ получает скрин, проверяет и начисляет"""
+@dp.message(Command("admin"))
+async def admin_help(message: types.Message):
     if message.from_user.id != ADMIN_ID:
-        # Обычный пользователь отправил скрин
-        await message.answer(
-            "📸 Спасибо, скрин получен!\n"
-            "Администратор проверит оплату в ближайшее время и начислит вопросы."
-        )
-        # Отправляем админу уведомление
-        if ADMIN_ID:
-            await bot.send_message(
-                ADMIN_ID,
-                f"📸 Новый скрин чека от пользователя @{message.from_user.username} (ID: {message.from_user.id})\n"
-                f"Проверь оплату и начисли вопросы командой /add_questions {message.from_user.id} X"
-            )
         return
-    
-    # Админ сам отправил скрин? Странно, но игнорируем
-    await message.answer("Используй команду /add_questions для начисления")
+    await message.answer(
+        "👑 Админ команды:\n"
+        "/add_questions user_id количество\n"
+        "/all_users — список пользователей\n"
+        "/admin — помощь"
+    )
 
 # =========================
-# ЗАПУСК
+# WEB-СЕРВЕР ДЛЯ ПИНГА (чтобы Render не засыпал)
 # =========================
+from aiohttp import web
+
+async def health_check(request):
+    return web.Response(text="I am alive!")
+
+async def start_web_app():
+    app = web.Application()
+    app.router.add_get('/health', health_check)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', port=int(os.environ.get('PORT', 8080)))
+    await site.start()
+
 async def main():
-    print("✅ Бот Таро с оплатой запущен")
-    print(f"🔐 Админ ID: {ADMIN_ID}")
+    # Запускаем веб-сервер для пингов (чтобы Render не засыпал)
+    await start_web_app()
+    print("✅ Web-сервер для Health Check запущен на порту 8080")
+    print("✅ Бот Таро запущен")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
